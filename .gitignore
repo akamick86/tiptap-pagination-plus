@@ -6,3 +6,5 @@
 /perf/bundle.js
 /perf/bundle.js.map
 /perf/trace-*.json
+/perf/narrative_28p.html
+/perf/very_large_narrative.html

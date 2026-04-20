@@ -515,6 +515,36 @@ export const PaginationPlus = Extension.create<PaginationPlusOptions, Pagination
             return contentBottomInEditor > breakerBottomInEditor + 1;
           };
 
+          // Measure how tall the content would be if the pagination widget
+          // weren't in the way. Any `display: table` descendant of the
+          // editor — including `<tbody>` under the extension's default
+          // table CSS — establishes a BFC that clears the widget's
+          // `float: left; clear: both` page-break stack. That means as
+          // the widget grows, such elements get pushed DOWN below the
+          // whole float stack, inflating `editorDom.scrollHeight` to a
+          // function of pageCount rather than real content. The resulting
+          // feedback loop runs pages to 1000+ on small documents.
+          //
+          // Hiding the widget and resetting `minHeight` (set by
+          // `refreshPage`) yields the true content extent. One extra
+          // forced reflow per convergence cycle; cheap enough because
+          // iterateUntilStable only fires on mount / pageCount change,
+          // not on every keystroke.
+          const measureContentHeight = (): number => {
+            const editorDom = editorView.dom;
+            const widget = editorDom.querySelector(
+              "[data-rm-pagination]"
+            ) as HTMLElement | null;
+            const origDisplay = widget?.style.display ?? "";
+            const origMinHeight = editorDom.style.minHeight;
+            if (widget) widget.style.display = "none";
+            editorDom.style.minHeight = "0";
+            const h = editorDom.scrollHeight;
+            if (widget) widget.style.display = origDisplay;
+            editorDom.style.minHeight = origMinHeight;
+            return h;
+          };
+
           // Converge pagination inside a single animation frame. Each
           // iteration measures layout once, then — only if the rendered
           // count disagrees — dispatches a meta transaction carrying the
@@ -529,12 +559,60 @@ export const PaginationPlus = Extension.create<PaginationPlusOptions, Pagination
                 getPageConfig(storage, this.options);
               const opts = { ..._currentOptions, ...pageConfig };
 
+              // Real content height (widget hidden). Used only as a
+              // fallback when the normal scrollHeight-based loop fails
+              // to converge — see the runaway-detection block below.
+              const contentHeight = measureContentHeight();
+              const _pageHeaderHeightForArea =
+                opts.contentMarginTop + opts.marginTop;
+              const _pageFooterHeightForArea =
+                opts.contentMarginBottom + opts.marginBottom;
+              const pageContentArea =
+                opts.pageHeight -
+                _pageHeaderHeightForArea -
+                _pageFooterHeightForArea;
+              const naturalPages = Math.max(
+                1,
+                Math.ceil(contentHeight / pageContentArea)
+              );
+
+              // Runaway detection: when any `display: table` descendant of
+              // the editor — e.g. `<tbody>` under the extension's default
+              // `table { display: contents; tbody { display: table } }`
+              // CSS — clears the widget's `float: left; clear: both`
+              // page-break stack, such elements pile at the widget's
+              // bottom, dragging scrollHeight up by roughly the widget
+              // extent each iteration. For documents where that feedback
+              // diverges (short docs with a table), pageCount runs off
+              // into the thousands. We watch for N consecutive iterations
+              // in which the loop asks for strictly more pages; when that
+              // trips, we fall back to the widget-hidden content height
+              // instead of scrollHeight. Document structures where the
+              // feedback converges (narrative docs with many tables
+              // distributed through real content) settle in < 5 growth
+              // iterations and never hit this path.
+              const RUNAWAY_GROWTH_STREAK = 5;
+              let growthStreak = 0;
               let i = 0;
               for (; i < MAX_CONVERGE_ITER; i++) {
                 const desired = getNewPageCount(editorView, opts);
                 const pluginState = paginationKey.getState(editorView.state);
                 const current = pluginState?.renderedPageCount ?? 1;
                 if (desired === current) break;
+                if (desired > current) {
+                  growthStreak++;
+                } else {
+                  growthStreak = 0;
+                }
+                if (growthStreak >= RUNAWAY_GROWTH_STREAK) {
+                  editorView.dispatch(
+                    editorView.state.tr.setMeta(page_count_meta_key, {
+                      pageCount: naturalPages,
+                    })
+                  );
+                  i++;
+                  break;
+                }
                 editorView.dispatch(
                   editorView.state.tr.setMeta(page_count_meta_key, {
                     pageCount: desired,
