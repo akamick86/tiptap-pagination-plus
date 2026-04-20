@@ -1,6 +1,6 @@
 {
   "name": "tiptap-pagination-plus",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Tiptap pagination extension — performance-hardened fork of tiptap-pagination-plus, reworked for reliability on 100+ page documents and content containing tables.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

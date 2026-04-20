@@ -45,13 +45,22 @@ M-series Mac, synthetic 100-page seed (600 paragraphs + 25 tables):
 | LCP                            |     2079 ms |      307 ms |
 | First convergence              |      728 ms |      ~200 ms |
 
-Correctness fixes confirmed on customer-supplied reproducers
-(anonymised and bundled under `perf/`):
+Correctness fixes on customer-supplied reproducers (anonymised,
+available under `perf/`):
 
-| Document shape                                 | Upstream             | This fork                    |
-| ---------------------------------------------- | -------------------- | ---------------------------- |
-| ~28 pages, many distributed tables             | tail under-paginated | 32 pages, 0 blank, 0 overflow |
-| Short doc (~10 kpx) with one early `<tbody>`   | runaway to 1000+ pg  | 12 pages, 0 blank             |
+| Document shape                                 | Upstream             | This fork                         |
+| ---------------------------------------------- | -------------------- | --------------------------------- |
+| ~28 pages, many distributed tables             | tail under-paginated | 41 pages, 1 px overflow           |
+| Short doc (~10 kpx) with one early `<tbody>`   | runaway to 1000+ pg  | ~14 pages (runaway bounded)       |
+
+The second case — a short document whose only table's `<tbody>`
+clears the widget's float stack — still shows some blank middle
+pages with bounded overflow, because `display: table` clearing is
+intrinsic to CSS. The fork's runaway detector stops the feedback
+loop so pageCount stays in the reasonable range instead of the
+thousands. A proper fix (in-flow break decorations at computed
+page boundaries instead of a single widget with N floats) is
+tracked for a future v2.
 
 ## Install
 
@@ -59,7 +68,7 @@ Install from GitHub at a release tag. `prepare: tsc` builds `dist/`
 on install, so no separate build step is needed.
 
 ```bash
-npm install github:akamick86/tiptap-pagination-plus#v1.0.0
+npm install github:akamick86/tiptap-pagination-plus#v1.0.1
 ```
 
 Works with both TipTap v2 and v3 (peer deps cover both).
