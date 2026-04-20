@@ -260,6 +260,41 @@ export const PaginationPlus = Extension.create<PaginationPlusOptions, Pagination
     style.dataset.rmPaginationStyle = "";
 
     style.textContent = `
+      /* The editor is the positioning context for the absolute
+         pagination widget below. Without this the widget would position
+         itself relative to the nearest positioned ancestor, which could
+         be the viewport or some app chrome. */
+      .rm-with-pagination {
+        position: relative;
+      }
+      /* Widget is positioned absolutely so its page-break "floats"
+         don't interact with content's block formatting. Any
+         \`display: table\` descendant (including \`<tbody>\` under the
+         \`table { display: contents }\` CSS below) would otherwise
+         clear the whole widget's float stack — pushing that content
+         past the widget and leaving the middle pages blank on
+         documents whose content is shorter than the widget. Making the
+         widget absolute takes it out of flow entirely, so clearing
+         can't apply. refreshPage keeps the editor's \`minHeight\`
+         matched to the widget's extent so the last page stays
+         scrollable. */
+      .rm-with-pagination [data-rm-pagination] {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        pointer-events: none;
+      }
+      /* Opaque backgrounds on the visible parts of each page break so
+         content behind the widget is hidden where the break sits.
+         pointer-events restored so the existing header/footer click
+         handlers keep working; the transparent gap passes clicks
+         through to underlying content. */
+      .rm-with-pagination .rm-page-header,
+      .rm-with-pagination .rm-page-footer {
+        background: var(--rm-page-break-background, #ffffff);
+        pointer-events: auto;
+      }
       .rm-pagination-gap{
         border-top: 1px solid;
         border-bottom: 1px solid;

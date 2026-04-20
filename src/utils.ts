@@ -14,6 +14,7 @@ export const updateCssVariables = (targetNode: HTMLElement, config: PaginationPl
         "rm-content-margin-bottom": `${config.contentMarginBottom}px`,
         "rm-page-gap-border-color": `${config.pageGapBorderColor}`,
         "rm-page-width": `${config.pageWidth}px`,
+        "rm-page-break-background": `${config.pageBreakBackground}`,
       }
 
   Object.entries(cssVariables).forEach(([key, value]) => {
